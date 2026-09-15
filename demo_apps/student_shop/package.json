@@ -1,0 +1,13 @@
+{
+  "name": "student-shop-demo",
+  "version": "1.0.0",
+  "description": "Benchmark target e-commerce app with planted bugs for AI agent testing",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}

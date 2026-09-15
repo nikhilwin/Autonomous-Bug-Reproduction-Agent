@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+
+# Databases & local logs
+*.db
+*.log
+agent_database.db
+
+# Build outputs
+dist/
+build/
+.env
