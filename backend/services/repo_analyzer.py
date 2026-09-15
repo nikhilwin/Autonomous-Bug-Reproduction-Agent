@@ -16,7 +16,6 @@ class RepoAnalyzer:
             return {"file_count": 0, "languages": [], "frameworks": []}
 
         for root, dirs, files in os.walk(self.repo_path):
-            # Exclude node_modules, .git, venv
             dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', 'venv', '__pycache__']]
             for f in files:
                 file_count += 1
@@ -39,6 +38,47 @@ class RepoAnalyzer:
             "frameworks": list(frameworks)
         }
 
+    def scan_repository_bugs(self) -> List[Dict[str, Any]]:
+        """Scans all repository source files for potential bug patterns."""
+        detected_bugs = []
+        if not os.path.exists(self.repo_path):
+            return detected_bugs
+
+        bug_patterns = [
+            (r'\b[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\b', 'Potential TypeError / Deep Property Access without optional chaining'),
+            (r'catch\s*\([^)]*\)\s*\{\s*\}', 'Empty catch block swallowing errors silently'),
+            (r'res\.status\(500\)', 'Explicit HTTP 500 Internal Server Error handler'),
+            (r'throw\s+new\s+Error', 'Uncaught thrown exception'),
+            (r'calculateTotal|checkout|payment', 'High priority business logic routine')
+        ]
+
+        for root, dirs, files in os.walk(self.repo_path):
+            dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', 'venv', '__pycache__']]
+            for f in files:
+                ext = os.path.splitext(f)[1].lower()
+                if ext not in ['.js', '.jsx', '.ts', '.tsx', '.py']:
+                    continue
+
+                rel_path = os.path.relpath(os.path.join(root, f), self.repo_path).replace("\\", "/")
+                full_path = os.path.join(root, f)
+
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as file:
+                        lines = file.readlines()
+                        for idx, line in enumerate(lines):
+                            for pattern, bug_desc in bug_patterns:
+                                if re.search(pattern, line):
+                                    detected_bugs.append({
+                                        "file": rel_path,
+                                        "line_number": idx + 1,
+                                        "snippet": line.strip(),
+                                        "type": bug_desc
+                                    })
+                except Exception:
+                    pass
+
+        return detected_bugs[:25]
+
     def search_code(self, query: str) -> List[Dict[str, Any]]:
         """Searches for query in files and returns matches with snippets."""
         results = []
@@ -53,7 +93,6 @@ class RepoAnalyzer:
                 rel_path = os.path.relpath(os.path.join(root, f), self.repo_path)
                 full_path = os.path.join(root, f)
 
-                # Skip binary files
                 if f.endswith(('.png', '.jpg', '.ico', '.db', '.pdf')):
                     continue
 
@@ -70,7 +109,7 @@ class RepoAnalyzer:
                 except Exception:
                     pass
 
-        return results[:30] # Cap top 30 matches
+        return results[:30]
 
     def read_file_segment(self, relative_path: str, start_line: int = 1, end_line: int = 200) -> str:
         """Reads specific line range of a file within the repo."""

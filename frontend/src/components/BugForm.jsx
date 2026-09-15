@@ -6,32 +6,36 @@ export default function BugForm({ onSubmit, isRunning }) {
   const [description, setDescription] = useState(
     "When I add two or more products to the cart and click Proceed to Checkout, the page crashes with a 500 server error."
   );
-  const [targetUrl, setTargetUrl] = useState("http://localhost:3000");
+  const [targetUrl, setTargetUrl] = useState("");
 
   const presetBugs = [
     {
       id: 1,
       title: "Checkout crashes when cart contains multiple products",
       desc: "Add 2+ products to cart -> Click Checkout -> Returns HTTP 500 TypeError in server.js",
-      tag: "PLANTED BUG #1"
+      url: "http://localhost:3000",
+      tag: "BENCHMARK BUG #1"
     },
     {
       id: 2,
       title: "Invalid promo code crashes modal checkout",
       desc: "Enter 'PROMO50' on checkout modal -> Server throws uncaught validation exception",
-      tag: "PLANTED BUG #2"
+      url: "http://localhost:3000",
+      tag: "BENCHMARK BUG #2"
     },
     {
       id: 3,
       title: "Quantity NaN overflow on empty input",
       desc: "Clear product quantity input -> Submitting cart total returns NaN",
-      tag: "PLANTED BUG #3"
+      url: "http://localhost:3000",
+      tag: "BENCHMARK BUG #3"
     }
   ];
 
   const handleSelectPreset = (preset) => {
     setTitle(preset.title);
     setDescription(preset.desc);
+    setTargetUrl(preset.url);
   };
 
   const handleSubmit = (e) => {
@@ -54,7 +58,7 @@ export default function BugForm({ onSubmit, isRunning }) {
           </div>
           <div>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white' }}>Bug Intake Console</h2>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Describe the issue or select a preset benchmark bug</p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Describe the issue or select a benchmark bug</p>
           </div>
         </div>
       </div>
@@ -116,7 +120,7 @@ export default function BugForm({ onSubmit, isRunning }) {
 
         <div>
           <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
-            Target Application Base URL
+            Target Application Base URL (Where app is running)
           </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--accent-cyan)', background: 'rgba(0, 242, 254, 0.1)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
@@ -126,7 +130,7 @@ export default function BugForm({ onSubmit, isRunning }) {
               type="text"
               value={targetUrl}
               onChange={(e) => setTargetUrl(e.target.value)}
-              required
+              placeholder="e.g. http://localhost:3000 or https://your-app.com"
             />
           </div>
         </div>
