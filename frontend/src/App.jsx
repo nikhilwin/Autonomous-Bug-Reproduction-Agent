@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
+import Navigation from './components/Navigation';
+import HeroHeader from './components/HeroHeader';
+import InvestigationWorkflow from './components/InvestigationWorkflow';
+import AgentActivityTerminal from './components/AgentActivityTerminal';
+import BrowserReproductionViewport from './components/BrowserReproductionViewport';
+import SourceCodeViewer from './components/SourceCodeViewer';
+import RegressionTestGenerator from './components/RegressionTestGenerator';
+import DemoMode from './components/DemoMode';
+import EvaluationDashboard from './components/EvaluationDashboard';
 import RepoSelector from './components/RepoSelector';
 import BugForm from './components/BugForm';
-import AgentExecutionVisualizer from './components/AgentExecutionVisualizer';
 import EvidenceViewer from './components/EvidenceViewer';
 import FinalReportView from './components/FinalReportView';
 import GalaxyBackground from './components/GalaxyBackground';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [activeProject, setActiveProject] = useState(null);
-  const [activeBug, setActiveBug] = useState(null);
   const [runData, setRunData] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -37,9 +44,13 @@ export default function App() {
       });
   }, []);
 
-  const handleBugSubmit = async ({ title, description, targetUrl }) => {
+  const handleRunInvestigation = async (bugDetails) => {
     setIsRunning(true);
     setRunData(null);
+
+    const title = bugDetails?.title || 'Checkout crashes when cart contains multiple products';
+    const description = bugDetails?.description || 'When I add two or more products to the cart and click Proceed to Checkout, the page crashes with a 500 server error.';
+    const targetUrl = bugDetails?.targetUrl || 'http://localhost:3000';
 
     try {
       // 1. Create Bug Report
@@ -53,7 +64,6 @@ export default function App() {
         })
       });
       const bugData = await bugRes.json();
-      setActiveBug(bugData);
 
       // 2. Trigger Agent Run
       const runRes = await fetch('/api/agent/run', {
@@ -92,29 +102,114 @@ export default function App() {
     }, 1500);
   };
 
+  const currentStageIndex = isRunning ? 4 : runData ? 7 : 0;
+
   return (
     <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
-      {/* OpenAI Astra Style 3D Particle Galaxy Animation Background */}
+      {/* 3D Particle Galaxy Animation Background */}
       <GalaxyBackground />
 
-      <Navbar isRunning={isRunning} />
+      <Navigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onStartDemo={() => {
+          setActiveTab('dashboard');
+          handleRunInvestigation();
+        }}
+        isRunning={isRunning}
+      />
 
       <main style={{ maxWidth: '1350px', margin: '2rem auto', padding: '0 2rem', position: 'relative', zIndex: 1 }}>
-        <RepoSelector activeProject={activeProject} />
-
-        <div style={{ display: 'grid', gridTemplateColumns: runData ? '1fr 1fr' : '1fr', gap: '2rem' }}>
+        
+        {activeTab === 'dashboard' && (
           <div>
-            <BugForm onSubmit={handleBugSubmit} isRunning={isRunning} />
-            <AgentExecutionVisualizer runData={runData} />
-          </div>
+            <HeroHeader
+              onStartClick={() => handleRunInvestigation()}
+              onDemoClick={() => handleRunInvestigation()}
+              isRunning={isRunning}
+            />
 
-          {runData && (
-            <div>
-              <EvidenceViewer evidence={runData.evidence} />
-              <FinalReportView runData={runData} />
+            <RepoSelector activeProject={activeProject} />
+
+            <InvestigationWorkflow
+              currentStage={currentStageIndex}
+              trajectory={runData?.trajectory}
+              isReproduced={runData?.state === 'REPRODUCED'}
+              isFailed={runData?.state === 'FAILED'}
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div>
+                <BugForm onSubmit={handleRunInvestigation} isRunning={isRunning} />
+                <AgentActivityTerminal trajectory={runData?.trajectory} isRunning={isRunning} />
+              </div>
+
+              <div>
+                <BrowserReproductionViewport
+                  screenshotB64={runData?.evidence?.latest_screenshot_b64}
+                  targetUrl="http://localhost:3000"
+                  hasError={runData?.evidence?.has_error}
+                />
+                
+                {runData && (
+                  <div>
+                    <EvidenceViewer evidence={runData.evidence} />
+                    <SourceCodeViewer rootCause={runData.root_cause_analysis} />
+                    <RegressionTestGenerator
+                      testCode={runData.generated_test_code}
+                      bugTitle={runData.root_cause_analysis?.root_cause}
+                      onRunAgain={() => handleRunInvestigation()}
+                    />
+                    <FinalReportView runData={runData} />
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {activeTab === 'investigations' && (
+          <div>
+            <InvestigationWorkflow
+              currentStage={currentStageIndex}
+              trajectory={runData?.trajectory}
+              isReproduced={runData?.state === 'REPRODUCED'}
+              isFailed={runData?.state === 'FAILED'}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <AgentActivityTerminal trajectory={runData?.trajectory} isRunning={isRunning} />
+              <BrowserReproductionViewport
+                screenshotB64={runData?.evidence?.latest_screenshot_b64}
+                targetUrl="http://localhost:3000"
+                hasError={runData?.evidence?.has_error}
+              />
+            </div>
+            {runData && <FinalReportView runData={runData} />}
+          </div>
+        )}
+
+        {activeTab === 'projects' && (
+          <div>
+            <RepoSelector activeProject={activeProject} />
+          </div>
+        )}
+
+        {activeTab === 'testcases' && runData && (
+          <div>
+            <RegressionTestGenerator
+              testCode={runData.generated_test_code}
+              bugTitle={runData.root_cause_analysis?.root_cause}
+              onRunAgain={() => handleRunInvestigation()}
+            />
+          </div>
+        )}
+
+        {activeTab === 'evaluation' && (
+          <div>
+            <EvaluationDashboard />
+          </div>
+        )}
+
       </main>
     </div>
   );
