@@ -129,7 +129,7 @@ export default function App() {
               isRunning={isRunning}
             />
 
-            <RepoSelector activeProject={activeProject} />
+            <RepoSelector activeProject={activeProject} onProjectImport={(proj) => setActiveProject(proj)} />
 
             <InvestigationWorkflow
               currentStage={currentStageIndex}
@@ -190,7 +190,7 @@ export default function App() {
 
         {activeTab === 'projects' && (
           <div>
-            <RepoSelector activeProject={activeProject} />
+            <RepoSelector activeProject={activeProject} onProjectImport={(proj) => setActiveProject(proj)} />
           </div>
         )}
 
