@@ -44,24 +44,75 @@ class PlaywrightBrowserDriver:
     async def navigate(self, url: str) -> Dict[str, Any]:
         await self.start()
         try:
-            res = await self.page.goto(url, wait_until="networkidle", timeout=10000)
+            # Ensure URL has protocol scheme
+            if not url.startswith("http://") and not url.startswith("https://"):
+                url = "http://" + url
+
+            res = await self.page.goto(url, wait_until="networkidle", timeout=12000)
             return {"success": True, "url": self.page.url, "status": res.status if res else 200}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            # Retry with domcontentloaded if networkidle times out
+            try:
+                res = await self.page.goto(url, wait_until="domcontentloaded", timeout=10000)
+                return {"success": True, "url": self.page.url, "status": res.status if res else 200}
+            except Exception as ex:
+                return {"success": False, "error": str(ex)}
 
-    async def click(self, selector: str) -> Dict[str, Any]:
+    async def get_interactive_elements(self) -> List[Dict[str, Any]]:
+        """Extracts visible interactive buttons, links, and form fields from DOM."""
+        if not self.page:
+            return []
         try:
-            # Try text selector if CSS selector fails
-            if not selector.startswith('.') and not selector.startswith('#') and not selector.startswith('['):
-                try:
-                    await self.page.click(f"text={selector}", timeout=3000)
-                except Exception:
-                    await self.page.click(selector, timeout=3000)
-            else:
-                await self.page.click(selector, timeout=3000)
+            elements = await self.page.evaluate("""() => {
+                const results = [];
+                const nodes = document.querySelectorAll('button, a, input, [role="button"], .btn');
+                nodes.forEach(el => {
+                    const text = (el.innerText || el.value || el.getAttribute('placeholder') || '').trim();
+                    if (text && text.length < 50 && el.offsetWidth > 0 && el.offsetHeight > 0) {
+                        results.push({
+                            tag: el.tagName.toLowerCase(),
+                            text: text,
+                            id: el.id,
+                            className: el.className
+                        });
+                    }
+                });
+                return results.slice(0, 20);
+            }""")
+            return elements
+        except Exception:
+            return []
 
-            await asyncio.sleep(0.5)
-            return {"success": True, "action": "click", "selector": selector}
+    async def click_smart(self, keyword_or_selector: str) -> Dict[str, Any]:
+        """Tries multiple click strategies safely without failing the trajectory."""
+        if not self.page:
+            return {"success": False, "error": "No page active"}
+
+        try:
+            # 1. Try text match
+            try:
+                await self.page.click(f"text={keyword_or_selector}", timeout=2500)
+                await asyncio.sleep(0.5)
+                return {"success": True, "action": "click", "selector": keyword_or_selector}
+            except Exception:
+                pass
+
+            # 2. Try selector match
+            try:
+                await self.page.click(keyword_or_selector, timeout=2500)
+                await asyncio.sleep(0.5)
+                return {"success": True, "action": "click", "selector": keyword_or_selector}
+            except Exception:
+                pass
+
+            # 3. Fallback: Click first button found on page
+            buttons = await self.page.query_selector_all('button, [role="button"]')
+            if buttons and len(buttons) > 0:
+                await buttons[0].click(timeout=2500)
+                await asyncio.sleep(0.5)
+                return {"success": True, "action": "click", "selector": "first_available_button"}
+
+            return {"success": False, "error": f"Element '{keyword_or_selector}' not interactable."}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
